@@ -3,18 +3,19 @@
   "version": "1.0.0",
   "scripts": {
     "start": "bun src/index.ts",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "secrets": "flyctl secrets import < .env",
+    "deploy": "flyctl deploy"
   },
   "author": "Kye Lewis <kye@klewis.me>",
   "license": "MIT",
   "devDependencies": {
+    "@flydotio/dockerfile": "latest",
     "prettier": "3.2.5"
   },
   "dependencies": {
-    "decimal.js": "10.4.3",
-    "graphql": "^16.8.1",
-    "graphql-yoga": "^5.1.1",
-    "handlebars": "^4.7.8",
-    "linkedjs": "^0.0.3"
+    "graphql": "16.8.1",
+    "graphql-yoga": "5.1.1",
+    "linkedjs": "0.0.3"
   }
 }
