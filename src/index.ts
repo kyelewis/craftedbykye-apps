@@ -1,14 +1,27 @@
 import { Linked } from "linkedjs";
 import { Decimal } from "decimal.js";
 import { AmberElectricClient } from "./amber-electric-client";
+import { GithubClient } from "./github-client";
 import { amberDateYesterday } from "./util";
 import { createYoga, createSchema } from "graphql-yoga";
 
 const linked = new Linked({
   context: {
-    amberClientOptions: { apiKey: process.env.AMBER_API_KEY },
+    amberOptions: { apiKey: process.env.AMBER_API_KEY },
+    githubOptions: { apiKey: process.env.GITHUB_API_KEY },
   },
   logging: true,
+});
+
+const mapGithubUser = (user) => ({
+  login: user.login,
+  location: user.location,
+  avatar: user.avatar,
+});
+
+const mapGithubStarred = (starred) => ({
+  name: starred.full_name,
+  avatar: starred.owner.avatar_url,
 });
 
 linked.add({
@@ -16,23 +29,34 @@ linked.add({
     amberSites: (_, linked) => linked.connection("amber").getAllSites(),
     amberSitePrices: async ({ siteId }, linked) =>
       linked.connection("amber").getCurrentPriceForSite(siteId),
+    githubUser: (_, linked) =>
+      linked.connection("github").getUser().then(mapGithubUser),
+    githubStarred: (_, linked) =>
+      linked
+        .connection("github")
+        .getStarred()
+        .then((starreds) => starreds.map(mapGithubStarred)),
   },
   links: {
-    "amberSites.prices": (amberSite, linked) =>
+    "activeAmberSite.prices": (amberSite, linked) =>
       linked
         .call("amberSitePrices", { siteId: amberSite.id })
         .then((prices) => prices?.[0]),
+    "githubUser.starred": (githubUser, linked) => linked.call("githubStarred"),
+    "githubUser.following": (githubUser, linked) =>
+      linked.call("githubFollowing"),
   },
   connections: {
-    amber: ({ amberClientOptions }) =>
-      new AmberElectricClient(amberClientOptions),
+    amber: ({ amberOptions }) => new AmberElectricClient(amberOptions),
+    github: ({ githubOptions }) => new GithubClient(githubOptions),
   },
 });
 
 const schema = createSchema({
   typeDefs: /* GraphQL */ `
     type Query {
-      amberSite: AmberSite!
+      activeAmberSite: AmberSite!
+      githubUser: GithubUser!
     }
 
     type AmberSite {
@@ -45,13 +69,27 @@ const schema = createSchema({
       renewables: Float
       spotPerKwh: Float
     }
+
+    type GithubUser {
+      login: String
+      avatar: String
+      location: String
+      starred: [GithubStarred!]
+    }
+
+    type GithubStarred {
+      name: String!
+      avatar: String!
+      html_url: String!
+    }
   `,
   resolvers: {
     Query: {
-      amberSite: () =>
+      activeAmberSite: () =>
         linked
           .call("amberSites")
           .then((sites) => sites.find((site) => site.status === "active")),
+      githubUser: () => linked.call("githubUser"),
     },
   },
 });
