@@ -16,12 +16,14 @@ const linked = new Linked({
 const mapGithubUser = (user) => ({
   login: user.login,
   location: user.location,
-  avatar: user.avatar,
+  avatar: user.avatar_url,
+  url: user.html_url,
 });
 
 const mapGithubStarred = (starred) => ({
   name: starred.full_name,
   avatar: starred.owner.avatar_url,
+  url: starred.html_url,
 });
 
 linked.add({
@@ -71,6 +73,7 @@ const schema = createSchema({
     }
 
     type GithubUser {
+      url: String
       login: String
       avatar: String
       location: String
@@ -80,7 +83,7 @@ const schema = createSchema({
     type GithubStarred {
       name: String!
       avatar: String!
-      html_url: String!
+      url: String!
     }
   `,
   resolvers: {

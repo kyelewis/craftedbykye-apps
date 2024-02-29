@@ -10,9 +10,7 @@ export class GithubClient {
     const response = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${this.options.apiKey}` },
     });
-    const result = await response.json();
-    console.log(result);
-    return result;
+    return await response.json();
   }
 
   getStarred() {
