@@ -1,19 +1,20 @@
 {
   "name": "craftedbykye-apps",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "bun src/index.ts",
+    "format": "prettier --write ."
   },
-  "keywords": [],
-  "author": "",
+  "author": "Kye Lewis <kye@klewis.me>",
   "license": "MIT",
   "devDependencies": {
-    "prettier": "^3.2.5"
+    "prettier": "3.2.5"
   },
   "dependencies": {
-    "decimal.js": "^10.4.3",
-    "handlebars": "^4.7.8"
+    "decimal.js": "10.4.3",
+    "graphql": "^16.8.1",
+    "graphql-yoga": "^5.1.1",
+    "handlebars": "^4.7.8",
+    "linkedjs": "^0.0.3"
   }
 }

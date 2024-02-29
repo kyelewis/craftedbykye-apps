@@ -1,54 +1,72 @@
-import { compile } from 'handlebars';
-import { Decimal } from 'decimal.js';
-
+import { Linked } from "linkedjs";
+import { Decimal } from "decimal.js";
 import { AmberElectricClient } from "./amber-electric-client";
 import { amberDateYesterday } from "./util";
+import { createYoga, createSchema } from "graphql-yoga";
 
-const amberElectricClient = new AmberElectricClient({ apiKey: process.env.AMBER_ELECTRIC_API_KEY });
-const nmiTemplate = compile("<h1>NMI {{nmi}}</h1><strong>Current Spot Price</strong> ${{currentPrice}}/kWh<br/><strong>Yesterday: <strong>{{yesterdayKwh}}kWh / ${{yesterdayCost}}</strong>");
+const linked = new Linked({
+  context: {
+    amberClientOptions: { apiKey: process.env.AMBER_API_KEY },
+  },
+  logging: true,
+});
 
-const homepage = `
-<html><head><title>Kye API Dashboard</title><head><body>
-  <div hx-get="/amber-electric?type=html" hx-trigger="load, every 30s" ><div class="htmx-indicator">Loading...</div></div>
-<script src="https://unpkg.com/htmx.org@1.9.10"></script>
-	</body></html>
+linked.add({
+  queries: {
+    amberSites: (_, linked) => linked.connection("amber").getAllSites(),
+    amberSitePrices: async ({ siteId }, linked) =>
+      linked.connection("amber").getCurrentPriceForSite(siteId),
+  },
+  links: {
+    "amberSites.prices": (amberSite, linked) =>
+      linked
+        .call("amberSitePrices", { siteId: amberSite.id })
+        .then((prices) => prices?.[0]),
+  },
+  connections: {
+    amber: ({ amberClientOptions }) =>
+      new AmberElectricClient(amberClientOptions),
+  },
+});
 
-`;
+const schema = createSchema({
+  typeDefs: /* GraphQL */ `
+    type Query {
+      amberSite: AmberSite!
+    }
+
+    type AmberSite {
+      network: String
+      prices: AmberSitePrices
+    }
+
+    type AmberSitePrices {
+      perKwh: Float
+      renewables: Float
+      spotPerKwh: Float
+    }
+  `,
+  resolvers: {
+    Query: {
+      amberSite: () =>
+        linked
+          .call("amberSites")
+          .then((sites) => sites.find((site) => site.status === "active")),
+    },
+  },
+});
+
+const yoga = createYoga({ schema });
 
 const fetch = async (request) => {
+  const url = new URL(request.url);
 
-	const url = new URL(request.url);
-	const type = url.searchParams.get("type") ?? "html";
+  switch (url.pathname) {
+    case "/graphql":
+      return await yoga.fetch(request);
+  }
 
-	switch(url.pathname) {
-		case '/amber-electric': 
+  return new Response("Hi There");
+};
 
-const sites = await amberElectricClient.getAllSites();
-
-const result = [];
-
-for(const site of sites) {
-	const price = await amberElectricClient.getCurrentPriceForSite(site.id);
-	const usage = await amberElectricClient.getUsageForSite(site.id, amberDateYesterday());
-	const yesterdayKwh = usage.reduce((total, next) => total.add(next.kwh) , new Decimal(0));
-	const yesterdayCost = usage.reduce((total, next) => total.add(next.cost) , new Decimal(0));
- 	result.push( { nmi: site.nmi, network: site.network, currentPrice: new Decimal(price?.[0]?.perKwh ?? 0).div(100).toFixed(2), yesterdayKwh: yesterdayKwh.toFixed(2), yesterdayCost: yesterdayCost.div(100).toFixed(2) });
-}
-
-switch(type) {
-	case "html":
-return new Response(result.map((r) => nmiTemplate(r)).join("<br />"), { headers: { 'Content-Type': 'text/html' }});
-	case "json":
-return new Response(JSON.stringify(result), { headers: { 'Content-Type': 'application/json'  }});
-}
-
-	break;
-	default:
-		return new Response(homepage, { headers: { "Content-Type": "text/html" } });
-	}
-
-
-
-}
-
-Bun.serve({fetch});
+Bun.serve({ fetch });
