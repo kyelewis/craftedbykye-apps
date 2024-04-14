@@ -36,6 +36,7 @@ export class AmberElectricClient {
       headers: { Authorization: `Bearer ${this.apiKey}` },
     });
     const result = await response.json();
+    console.log(result);
     return result;
   }
 
